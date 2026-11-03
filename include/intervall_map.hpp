@@ -10,6 +10,7 @@ class interval_map
     V m_valBegin;
     std::map<K,V> m_map;
     bool Debugging = false;
+    int assignselection = 2;
 
 public:
 
@@ -46,9 +47,24 @@ public:
                     7 Lösche die Map -> Füge KeyBegin ein -> Füge Keyend ein
                     8 Füge KeyEnd mit prev value ein -> Füge KeyBegin ein -> Lösche von KeyBegin next bis KeyEnd
     */
-    template<typename V_forawrd>
-    void assign (K const &keyBegin, K const &keyEnd, V_forawrd &&val) requires (std::is_same<std::remove_cvref_t<V_forawrd>, V>::value)
+    template<typename V_forward>
+    void assign (K const &keyBegin, K const &keyEnd, V_forward &&val) requires (std::is_same<std::remove_cvref_t<V_forward>, V>::value)
     {
+        if (!(keyBegin < keyEnd)) return;                                     // PreExit Sollte das Ende Größer als der Anfang sein, tue bei der Ungültigen Angabe nichts
+
+        switch (assignselection)
+        {
+        case 1:
+            assignv1(keyBegin, keyEnd, std::forward<V_forward>(val));
+            break;
+        case 2:
+            assignv2(keyBegin, keyEnd, std::forward<V_forward>(val));
+            break;
+        
+        default:
+            if(Debugging) std::cout << "Nice try, the Assign doesnt exist" << std::endl;
+            break;
+        }        
     };
 
     /*!
@@ -62,13 +78,13 @@ public:
                  Danach inserte ich es
                  Nach dem Insert - wird mithilfe von std::prev und std::next sowie erase range gearbeitet
         
-        @tparam V_forawrd 
+        @tparam V_forward 
         @param keyBegin 
         @param keyEnd 
         @param val 
     */
-    template<typename V_forawrd>
-    void assignv1 (K const &keyBegin, K const &keyEnd, V_forawrd &&val)
+    template<typename V_forward>
+    void assignv1 (K const &keyBegin, K const &keyEnd, V_forward &&val)
     {
         //--------------------------------------------------------------Setup temporary variables
         std::pair<K,V> tempbegin;                                                                                                   // Hold start key-value pair
@@ -84,6 +100,11 @@ public:
         {
             if(Debugging) std::cerr << e.what() << '\n';                                                                            // Optional Print debug error
             return;                                                                                                                 // Do nothing on failure (map stays untouched)
+        }
+        catch(...)
+        {
+            if(Debugging) std::cerr << "Undefined Error Handling." << std::endl;
+            return;
         }
         
         //--------------------------------------------------------------Insert start boundary
@@ -179,9 +200,16 @@ public:
     };
 
     /*!
-        @brief Gehe mithilfe von lower_bound die Schleife aufwärts durch
+        @brief  Optimized interval assignment using lower_bound and sequential 
+                iterator navigation to avoid costly tree traversals.
         
-        @tparam V_forawrd 
+        @details Nutzt einen initialen lower_bound als Sprungmarke, um teure 
+                 Baum-Traversierungen zu minimieren und sequenzielles Iterator-Jumping 
+                 zu ermöglichen. Zur Erfüllung der Strong Exception Guarantee werden 
+                 modifizierte Knoten temporär in einer Hilfs-Map gesichert und bei 
+                 Ausnahmen via merge zurückgeschrieben.
+
+        @tparam V_forward 
         @param keyBegin 
         @param keyEnd 
         @param val 
@@ -189,13 +217,184 @@ public:
     template<typename V_forward>
     void assignv2 (K const &keyBegin, K const &keyEnd, V_forward &&val)
     {
+        //--------------------------------------------------------------Setup local variables
+        auto itBegin = m_map.lower_bound(keyBegin);                                                                                 // Find first iterator greater than or equal to keyBegin
+        bool endforend = false;                                                                                                     // Track if end boundary was handled
+        std::map<K,V> temp;                                                                                                         // Hold extracted nodes for exception rollback
+        bool skip_keybegin = false;                                                                                                 // Track if start key handling can be skipped
 
+        try
+        {
+            //--------------------------------------------------------------Right Side Behaivior
+            if(itBegin == m_map.end())
+            {
+                auto itKeyBegin = m_map.emplace_hint(m_map.end(), keyBegin, std::forward<V_forward>(val));                                                   // Insert start key at map end
+                auto itKeyEnd = m_map.emplace_hint(itKeyBegin, keyEnd, m_valBegin);                                                 // Insert end key with default fallback value
+            }
+            //--------------------------------------------------------------Left and Middle Side Behaivior
+            else
+            {
+                auto nextIt = itBegin;                                                                                              // Active pointer for range processing
+                
+                if(itBegin != m_map.begin())                                                                                        // Pre-check predecessor element
+                {
+                    auto precheck = std::prev(itBegin);                                                                             // Get direct predecessor
+                    if(precheck->second == val)
+                    {
+                        skip_keybegin = true;
+                        auto checkafter = std::next(itBegin);                                                                       // Get successor element
+                        
+                        if(checkafter != m_map.end())
+                        {
+                            if(keyEnd < checkafter->first && (keyEnd < itBegin->first))
+                            {
+                                return;                                                                                             // Early exit if interval fits inside existing segment
+                            }
+                        }
+                        else
+                        {
+                            if(keyEnd < itBegin->first)
+                            {
+                                return;                                                                                             // Early exit at map tail
+                            }
+                        }
+                        
+                        itBegin = precheck;                                                                                         // Shift start pointer back
+                    }
+                    else
+                    {
+                        if(keyBegin < itBegin->first)
+                        {
+                            auto itKeyBegin = m_map.emplace_hint(itBegin, keyBegin, std::forward<V_forward>(val));                                           // Insert new start key before current bound
+                        }
+                        else
+                        {
+                            auto checkafter = std::next(itBegin);
+                            if(!(itBegin->second == val))
+                            {
+                                temp.insert(temp.end(), m_map.extract(itBegin));                                                    // Extract mismatched node for rollback
+                                auto itKeyBegin = m_map.emplace_hint(checkafter, keyBegin, std::forward<V_forward>(val));                                    // Insert corrected start key
+                                nextIt = checkafter;
+                            }
+                            else
+                            {
+                                if(keyEnd < checkafter->first)
+                                {
+                                    return;                                                                                         // Early exit if redundant
+                                }
+                                nextIt = checkafter;
+                            }
+                        }
+
+                        if(keyEnd < nextIt->first)
+                        {
+                            endforend = true;
+                            m_map.emplace_hint(nextIt, keyEnd, precheck->second);                                                   // Insert right boundary and terminate
+                            return;
+                        }
+                    }
+                }
+                else
+                {
+                    // Handle edge case at the very beginning of the map
+                    if(keyBegin < itBegin->first)
+                    {
+                        auto itKeyBegin = m_map.emplace_hint(m_map.begin(), keyBegin, std::forward<V_forward>(val));                                         // Insert at absolute map start
+                    }
+                    else
+                    {
+                        auto MemoryIT = std::next(itBegin);                                                                         // Save successor reference
+                        temp.insert(temp.end(), m_map.extract(nextIt));                                                             // Extract old boundary node
+
+                        auto itKeyBegin = m_map.emplace_hint(MemoryIT, keyBegin, std::forward<V_forward>(val));                                              // Insert new start key
+                        nextIt = MemoryIT;
+                    }
+                }
+
+                // Process range and extract nodes for Strong Exception Guarantee
+                while(nextIt != m_map.end())
+                {
+                    if(nextIt->first < keyEnd)
+                    {
+                        auto next_It = std::next(nextIt);                                                                           // Cache successor pointer
+                        temp.insert(temp.end(), m_map.extract(nextIt));                                                             // Move node to temp storage
+                        nextIt = next_It;                                                                                           // Advance active pointer
+                    }
+                    else
+                    {
+                        if(!(nextIt->first < keyEnd) && !(keyEnd < nextIt->first))
+                        {
+                            if(nextIt->second == val)
+                            {
+                                temp.insert(temp.end(), m_map.extract(nextIt));                                                     // Extract redundant exact match
+                            }
+                            endforend = true;
+                        }
+                        else
+                        {
+                            if(!temp.empty())
+                            {
+                                endforend = true;
+                                if(!(std::prev(nextIt)->second == temp.rbegin()->second))
+                                {
+                                    auto itkeyend = m_map.emplace_hint(nextIt, keyEnd, temp.rbegin()->second);                        // Insert end key with preserved value
+                                    auto behindend = std::next(itkeyend);
+
+                                    if(behindend != m_map.end())
+                                    {
+                                        if(behindend->second == temp.rbegin()->second)
+                                        {
+                                            m_map.erase(behindend);                                                                 // Prune redundant successor node
+                                        }
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                auto itkeyend = m_map.emplace_hint(nextIt, keyEnd, m_valBegin);
+                                auto behindend = std::next(itkeyend);
+                                endforend = true;
+
+                                if(behindend != m_map.end())
+                                {
+                                    if(behindend->second == itkeyend->second)
+                                    {
+                                        m_map.erase(behindend);                                                                     // Prune redundant successor node
+                                    }
+                                }
+                            }
+                        }
+                        break;
+                    }
+                };
+
+                if(!endforend)
+                {
+                    m_map.emplace_hint(nextIt, keyEnd, m_valBegin);                                                                 // Ensure default end boundary is set
+                }
+            }
+
+            if(m_map.size() == 1)
+            {
+                m_map.clear();                                                                                                      // Prevent invalid single-node state
+            }
+        }
+        catch(const std::exception& e)
+        {
+            std::cerr << e.what() << '\n';
+            m_map.merge(temp);                                                                                                      // Roll back map state on construction/allocation failure
+        }
+        catch(...)
+        {
+            std::cerr << "Undefined Error" << '\n';
+            m_map.merge(temp);                                                                                                      // Roll back map state on construction/allocation failure
+        }
     };
 
     /*!
         @brief Gehe mithilfe von lower_bound die Schleife abwärts durch
         
-        @tparam V_forawrd 
+        @tparam V_forward 
         @param keyBegin 
         @param keyEnd 
         @param val 
@@ -209,7 +408,7 @@ public:
     /*!
         @brief Gehe mithilfe von upper_bound die Schleife Aufwärts durch
         
-        @tparam V_forawrd 
+        @tparam V_forward 
         @param keyBegin 
         @param keyEnd 
         @param val 
@@ -223,7 +422,7 @@ public:
     /*!
         @brief Gehe mithilfe von upper_bound die Schleife abwärts durch
         
-        @tparam V_forawrd 
+        @tparam V_forward 
         @param keyBegin 
         @param keyEnd 
         @param val 
@@ -237,7 +436,7 @@ public:
     /*!
         @brief Gehe mithilfe von eigener logn Schleife aufwärts durch
         
-        @tparam V_forawrd 
+        @tparam V_forward 
         @param keyBegin 
         @param keyEnd 
         @param val 
@@ -251,7 +450,7 @@ public:
     /*!
         @brief Gehe mithilfe von eigener logn Schleife abwärts durch
         
-        @tparam V_forawrd 
+        @tparam V_forward 
         @param keyBegin 
         @param keyEnd 
         @param val 

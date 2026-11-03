@@ -1,0 +1,3 @@
+add_subdirectory(Intevall_Check)
+
+add_subdirectory(CustomClass_Check)
