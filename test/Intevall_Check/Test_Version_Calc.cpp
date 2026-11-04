@@ -206,25 +206,25 @@ void IntervalMapTest()
 int main(int argc, char**argv)
 {
     test_version = std::atoi(argv[1]);
-
+    std::cout << "Start Test for Assign Version " << test_version << std::endl;
     try
     {
         IntervalMapTest();
     }
     catch(int errorCode)
     {
-        std::cerr << "FAIL: Test abgebrochen mit Error-Code: " << errorCode << std::endl;
+        std::cout << "FAIL: Test abgebrochen mit Error-Code: " << errorCode << std::endl;
         return errorCode;
     }
     catch(const std::exception& e)
     {
-        std::cerr << e.what() << '\n';
-        std::cerr << "FAIL: Unerwartete Standard-Exception: " << e.what() << std::endl;
+        std::cout << e.what() << '\n';
+        std::cout << "FAIL: Unerwartete Standard-Exception: " << e.what() << std::endl;
         return 99;
     }
     catch(...)
     {
-        std::cerr << "FAIL: Unbekannte Exception!" << std::endl;
+        std::cout << "FAIL: Unbekannte Exception!" << std::endl;
         return 255;
     }
     

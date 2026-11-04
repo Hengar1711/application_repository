@@ -50,8 +50,22 @@ public:
     template<typename V_forward>
     void assign (K const &keyBegin, K const &keyEnd, V_forward &&val) requires (std::is_same<std::remove_cvref_t<V_forward>, V>::value)
     {
-        if (!(keyBegin < keyEnd)) return;                                     // PreExit Sollte das Ende Größer als der Anfang sein, tue bei der Ungültigen Angabe nichts
-
+        try
+        {
+            if (!(keyBegin < keyEnd)) return;                                     // PreExit Sollte das Ende Größer als der Anfang sein, tue bei der Ungültigen Angabe nichts
+        }
+        catch(const std::exception& e)
+        {
+            if(Debugging) std::cout << e.what() << '\n';
+            return;
+        }
+        catch(...)
+        {
+            if(Debugging) std::cout << "Undefined Error." << '\n';
+            return;
+        }
+        
+        
         switch (assignselection)
         {
         case 1:
@@ -87,14 +101,39 @@ public:
     void assignv1 (K const &keyBegin, K const &keyEnd, V_forward &&val)
     {
         //--------------------------------------------------------------Setup temporary variables
-        std::pair<K,V> tempbegin;                                                                                                   // Hold start key-value pair
-        std::pair<K,V> tempend;                                                                                                     // Hold end key-value pair
+        typename std::map<K, V>::iterator tempbeginIT;
+        bool insertedstart = false;
+
+        typename std::map<K, V>::iterator tempendIT;
+        bool insertedend = false;
 
         //--------------------------------------------------------------Create pairs safely (Strong Exception Guarantee)
         try
         {
-            tempbegin = std::pair<K,V>(keyBegin, std::forward<V_forward>(val));                                                     // Try creating start pair; aborts if K or V copy fails
-            tempend = std::pair<K,V>(keyEnd, m_valBegin);                                                                           // Try creating end pair with default value
+            std::pair<K,V> tempbegin = std::pair<K,V>(keyBegin, std::forward<V_forward>(val));                                      // Try creating start pair; aborts if K or V copy fails
+            std::pair<K,V> tempend = std::pair<K,V>(keyEnd, m_valBegin);                                                            // Try creating end pair with default value
+        
+            //--------------------------------------------------------------Insert start boundary
+            auto [tempbeginIT_mem, insertedstart_mem] = m_map.insert(tempbegin);                                                                 // Insert start key and store iterator + insert status
+            tempbeginIT = tempbeginIT_mem;
+            insertedstart = insertedstart_mem;
+
+
+            if(std::next(tempbeginIT) != m_map.end())                                                                               // Check if there is a next element
+            {
+                if(keyEnd < std::next(tempbeginIT)->first)                                                                          // Check if interval falls inside a single existing segment
+                {
+                    if(!insertedstart && tempbeginIT->second == val)                                                                // Check if key exists and value is already identical
+                    {
+                        return;                                                                                                     // Exit early since no change is needed
+                    }
+                    tempend.second = std::prev(tempbeginIT)->second;                                                                // Use previous interval value for end key
+                }
+            }
+
+            auto [tempendIT_mem, insertedend_mem] = m_map.insert(tempend);                                                                       // Insert end key to set right boundary
+            tempendIT = tempendIT_mem;
+            insertedend = insertedend_mem;
         }
         catch(const std::exception& e)                                                                                              // Catch object construction errors
         {
@@ -106,32 +145,15 @@ public:
             if(Debugging) std::cerr << "Undefined Error Handling." << std::endl;
             return;
         }
-        
-        //--------------------------------------------------------------Insert start boundary
-        auto [tempbeginIT, insertedstart] = m_map.insert(tempbegin);                                                                // Insert start key and store iterator + insert status
 
-        if(std::next(tempbeginIT) != m_map.end())                                                                                   // Check if there is a next element
-        {
-            if(keyEnd < std::next(tempbeginIT)->first)                                                                              // Check if interval falls inside a single existing segment
-            {
-                if(!insertedstart && tempbeginIT->second == val)                                                                    // Check if key exists and value is already identical
-                {
-                    return;                                                                                                         // Exit early since no change is needed
-                }
-                tempend.second = std::prev(tempbeginIT)->second;                                                                    // Use previous interval value for end key
-            }
-        }
-
-        auto [tempendIT, insertedend] = m_map.insert(tempend);                                                                      // Insert end key to set right boundary
-        
         //--------------------------------------------------------------Set up range to erase
         auto DeleteStart = tempbeginIT;                                                                                             // Mark start of erase range
         auto DeleteEnd = tempendIT;                                                                                                 // Mark end of erase range
 
         //--------------------------------------------------------------Fix left boundary
-        if(!insertedstart && !(tempbeginIT->second == tempbegin.second))                                                            // Check if start key existed with a different value
+        if(!insertedstart && !(tempbeginIT->second == val))                                                            // Check if start key existed with a different value
         {
-            tempbeginIT->second = tempbegin.second;                                                                                 // Update value at existing key
+            tempbeginIT->second = val;                                                                                 // Update value at existing key
             DeleteStart = std::next(tempbeginIT);                                                                                   // Keep start key, erase starting from next element
         }
         else
@@ -158,7 +180,7 @@ public:
         {
             if(insertedend)                                                                                                         // Check if end key was newly inserted
             {
-                if(!(tempbegin.second == std::prev(tempendIT)->second))                                                             // Check if value changes before end key
+                if(!(tempbeginIT->second == std::prev(tempendIT)->second))                                                             // Check if value changes before end key
                     tempendIT->second = std::prev(tempendIT)->second;                                                               // Copy value from key before it
                 else
                 {
