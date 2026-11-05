@@ -18,6 +18,8 @@ enum class CrashPhase
     Compare = 6
 };
 
+bool counting = false;
+
 class KeySeperation
 {
 public:
@@ -48,7 +50,7 @@ public:
     // 1. Normaler Konstruktor (Kein Default-Konstruktor!)
     explicit KeySeperation(int val, CrashPhase phase = CrashPhase::None) : m_val(val), m_crash_phase(phase) 
     {
-        Key_ctor_count++;
+        if(counting) Key_ctor_count++;
         if (m_crash_phase == CrashPhase::Constructor) 
         {
             throw 5; 
@@ -58,7 +60,7 @@ public:
     // 2. Copy-Konstruktor
     KeySeperation(const KeySeperation& other) : m_val(other.m_val), m_crash_phase(other.m_crash_phase) 
     {
-        Key_copy_ctor_count++;
+        if(counting) Key_copy_ctor_count++;
         if (m_crash_phase == CrashPhase::CopyCtor) 
         {
             throw 5;
@@ -68,7 +70,7 @@ public:
     // 3. Move-Konstruktor
     KeySeperation(KeySeperation&& other) noexcept(false) : m_val(other.m_val), m_crash_phase(other.m_crash_phase) 
     {
-        Key_move_ctor_count++;
+        if(counting) Key_move_ctor_count++;
         if (m_crash_phase == CrashPhase::MoveCtor) 
         {
             throw 5;
@@ -82,7 +84,7 @@ public:
     {
         if (this != &other) 
         {
-            Key_copy_assign_count++;
+            if(counting) Key_copy_assign_count++;
             if (m_crash_phase == CrashPhase::CopyAssign || other.m_crash_phase == CrashPhase::CopyAssign) 
             {
                 throw 5;
@@ -100,7 +102,7 @@ public:
     {
         if (this != &other) 
         {
-            Key_move_assign_count++;
+            if(counting) Key_move_assign_count++;
             if (m_crash_phase == CrashPhase::MoveAssign || other.m_crash_phase == CrashPhase::MoveAssign) 
             {
                 throw 5;
@@ -114,13 +116,13 @@ public:
     // Destruktor
     virtual ~KeySeperation() 
     {
-        Key_dtor_count++;
+        if(counting) Key_dtor_count++;
     };
 
     // Strict Weak Ordering Operator <
     bool operator<(const KeySeperation& input) const 
     {
-        Key_compare_count++;
+        if(counting) Key_compare_count++;
         if (m_crash_phase == CrashPhase::Compare || input.m_crash_phase == CrashPhase::Compare) 
         {
             throw 5;
@@ -158,7 +160,7 @@ struct ValueSeperation
 
     explicit ValueSeperation(char val, CrashPhase phase = CrashPhase::None) : m_val(val), m_crash_phase(phase) 
     {
-        Value_ctor_count++;
+        if(counting) Value_ctor_count++;
         if (m_crash_phase == CrashPhase::Constructor) 
         {
             throw 5; 
@@ -167,7 +169,7 @@ struct ValueSeperation
 
     ValueSeperation(const ValueSeperation& other) : m_val(other.m_val), m_crash_phase(other.m_crash_phase) 
     {
-        Value_copy_ctor_count++;
+        if(counting) Value_copy_ctor_count++;
         if (m_crash_phase == CrashPhase::CopyCtor) 
         {
             throw 5;
@@ -176,7 +178,7 @@ struct ValueSeperation
 
     ValueSeperation(ValueSeperation&& other) noexcept(false) : m_val(other.m_val), m_crash_phase(other.m_crash_phase) 
     {
-        Value_move_ctor_count++;
+        if(counting) Value_move_ctor_count++;
         if (m_crash_phase == CrashPhase::MoveCtor) 
         {
             throw 5;
@@ -185,7 +187,7 @@ struct ValueSeperation
 
     ValueSeperation& operator=(const ValueSeperation& other) 
     {
-        Value_copy_assign_count++;
+        if(counting) Value_copy_assign_count++;
         if (m_crash_phase == CrashPhase::CopyCtor) // oder eigene CrashPhase::CopyAssign
         {
             throw 5;
@@ -197,7 +199,7 @@ struct ValueSeperation
 
     ValueSeperation& operator=(ValueSeperation&& other) noexcept(false) 
     {
-        Value_move_assign_count++;
+        if(counting) Value_move_assign_count++;
         if (m_crash_phase == CrashPhase::MoveCtor) 
         {
             throw 5;
@@ -209,12 +211,12 @@ struct ValueSeperation
 
     virtual ~ValueSeperation() 
     {
-        Value_dtor_count++;
+        if(counting) Value_dtor_count++;
     };
 
     bool operator==(const ValueSeperation& input) const 
     {
-        Value_compare_count++;
+        if(counting) Value_compare_count++;
         return m_val == input.m_val;
     };
 
@@ -278,7 +280,20 @@ std::vector<Testinfo> Testcase1 =
     // PHASE 1: COMPARISON PHASE (operator<)
     // ============================================================================
     // The test verifies that the tree traversal via operator< finds the correct insertion boundary without mutating the map state. Expected: Normal execution, matching the exact expected map state.
-    {KEY{-5, CrashPhase::Compare},  KEY{20}, VALUE{'p'}, {{VALUE{'a'}, KEY{-38}}, {VALUE{'m'},  KEY{-33}}, {VALUE{'l'},  KEY{-17}}, {VALUE{'m'},  KEY{-2}}, {VALUE{'c'},  KEY{ 5}}, {VALUE{'m'},  KEY{32}}, {VALUE{'h'},  KEY{39}}}}
+    {KEY{-5, CrashPhase::Compare},  KEY{20}, VALUE{'p'}, {{VALUE{'a'}, KEY{-38}}, {VALUE{'m'},  KEY{-33}}, {VALUE{'l'},  KEY{-17}}, {VALUE{'m'},  KEY{-2}}, {VALUE{'c'},  KEY{ 5}}, {VALUE{'m'},  KEY{32}}, {VALUE{'h'},  KEY{39}}}},
+
+    // ============================================================================
+    {KEY{-25}, KEY{ 25}, VALUE{'b'}, {{VALUE{'a'}, KEY{-38}}, {VALUE{'m'}, KEY{-33}}, {VALUE{'b'}, KEY{-25}}, {VALUE{'c'}, KEY{ 25}}, {VALUE{'m'}, KEY{ 32}}, {VALUE{'h'}, KEY{ 39}}}},
+    {KEY{  0}, KEY{ 36}, VALUE{'c'}, {{VALUE{'a'}, KEY{-38}}, {VALUE{'m'}, KEY{-33}}, {VALUE{'b'}, KEY{-25}}, {VALUE{'c'}, KEY{  0}}, {VALUE{'m'}, KEY{ 36}}, {VALUE{'h'}, KEY{ 39}}}},
+    {KEY{ 21}, KEY{ 23}, VALUE{'b'}, {{VALUE{'a'}, KEY{-38}}, {VALUE{'m'}, KEY{-33}}, {VALUE{'b'}, KEY{-25}}, {VALUE{'c'}, KEY{  0}}, {VALUE{'b'}, KEY{ 21}}, {VALUE{'c'}, KEY{ 23}}, {VALUE{'m'}, KEY{36}}, {VALUE{'h'}, KEY{39}}}},
+    {KEY{-21}, KEY{ 26}, VALUE{'x'}, {{VALUE{'a'}, KEY{-38}}, {VALUE{'m'}, KEY{-33}}, {VALUE{'b'}, KEY{-25}}, {VALUE{'x'}, KEY{-21}}, {VALUE{'c'}, KEY{ 26}}, {VALUE{'m'}, KEY{ 36}}, {VALUE{'h'}, KEY{39}}}},
+    {KEY{-17}, KEY{ 27}, VALUE{'a'}, {{VALUE{'a'}, KEY{-38}}, {VALUE{'m'}, KEY{-33}}, {VALUE{'b'}, KEY{-25}}, {VALUE{'x'}, KEY{-21}}, {VALUE{'a'}, KEY{-17}}, {VALUE{'c'}, KEY{ 27}}, {VALUE{'m'}, KEY{36}}, {VALUE{'h'}, KEY{39}}}},
+    {KEY{ -1}, KEY{  5}, VALUE{'b'}, {{VALUE{'a'}, KEY{-38}}, {VALUE{'m'}, KEY{-33}}, {VALUE{'b'}, KEY{-25}}, {VALUE{'x'}, KEY{-21}}, {VALUE{'a'}, KEY{-17}}, {VALUE{'b'}, KEY{ -1}}, {VALUE{'a'}, KEY{ 5}}, {VALUE{'c'}, KEY{27}}, {VALUE{'m'}, KEY{36}}, {VALUE{'h'}, KEY{39}}}},
+    {KEY{-24}, KEY{  6}, VALUE{'a'}, {{VALUE{'a'}, KEY{-38}}, {VALUE{'m'}, KEY{-33}}, {VALUE{'b'}, KEY{-25}}, {VALUE{'a'}, KEY{-24}}, {VALUE{'c'}, KEY{ 27}}, {VALUE{'m'}, KEY{ 36}}, {VALUE{'h'}, KEY{39}}}},
+    {KEY{-24}, KEY{  7}, VALUE{'a'}, {{VALUE{'a'}, KEY{-38}}, {VALUE{'m'}, KEY{-33}}, {VALUE{'b'}, KEY{-25}}, {VALUE{'a'}, KEY{-24}}, {VALUE{'c'}, KEY{ 27}}, {VALUE{'m'}, KEY{ 36}}, {VALUE{'h'}, KEY{39}}}},
+    {KEY{-31}, KEY{-26}, VALUE{'a'}, {{VALUE{'a'}, KEY{-38}}, {VALUE{'m'}, KEY{-33}}, {VALUE{'a'}, KEY{-31}}, {VALUE{'m'}, KEY{-26}}, {VALUE{'b'}, KEY{-25}}, {VALUE{'a'}, KEY{-24}}, {VALUE{'c'}, KEY{27}}, {VALUE{'m'}, KEY{36}}, {VALUE{'h'}, KEY{39}}}},
+    {KEY{-35}, KEY{ 12}, VALUE{'b'}, {{VALUE{'a'}, KEY{-38}}, {VALUE{'b'}, KEY{-35}}, {VALUE{'a'}, KEY{ 12}}, {VALUE{'c'}, KEY{ 27}}, {VALUE{'m'}, KEY{ 36}}, {VALUE{'h'}, KEY{ 39}}}},
+            
 };
 
 
@@ -320,11 +335,13 @@ void IntervalMapTest()
     {
         auto MemSize = Testmap.m_map.size();
 
+        counting = true;
         auto startcount = std::chrono::steady_clock::now();        
 
         Testmap.assign(testinfo.keybegin, testinfo.keyend, testinfo.input);
 
         auto endcount = std::chrono::steady_clock::now();
+        counting = false;
 
         if(Diagnostig_Time[MemSize] == 0)
         {
@@ -346,6 +363,8 @@ int main(int argc, char**argv)
     std::cout << "Start Test for Assign Version " << test_version << std::endl;
     try
     {
+        KeySeperation::reset_diagnostics();
+        ValueSeperation::reset_diagnostics();
         IntervalMapTest();
     }
     catch(int errorCode)
@@ -390,13 +409,13 @@ int main(int argc, char**argv)
     std::cout << "---------------------------------------------------\n";
 
     std::cout << "[Value-Stats]\n"
-            << "  Vergleiche (<) : " << ValueSeperation::Value_compare_count << "\n"
-            << "  Konstrukteure  : " << ValueSeperation::Value_ctor_count << "\n"
-            << "  Copy Ctor      : " << ValueSeperation::Value_copy_ctor_count << "\n"
-            << "  Copy Assign    : " << ValueSeperation::Value_copy_assign_count << "\n"
-            << "  Move Ctor      : " << ValueSeperation::Value_move_ctor_count << "\n"
-            << "  Move Assign    : " << ValueSeperation::Value_move_assign_count << "\n"
-            << "  Destrukteure   : " << ValueSeperation::Value_dtor_count << "\n";
+            << "  Vergleiche (==) : " << ValueSeperation::Value_compare_count << "\n"
+            << "  Konstrukteure   : " << ValueSeperation::Value_ctor_count << "\n"
+            << "  Copy Ctor       : " << ValueSeperation::Value_copy_ctor_count << "\n"
+            << "  Copy Assign     : " << ValueSeperation::Value_copy_assign_count << "\n"
+            << "  Move Ctor       : " << ValueSeperation::Value_move_ctor_count << "\n"
+            << "  Move Assign     : " << ValueSeperation::Value_move_assign_count << "\n"
+            << "  Destrukteure    : " << ValueSeperation::Value_dtor_count << "\n";
     std::cout << "===================================================\n\n";
     return 0;
 };

@@ -74,6 +74,9 @@ public:
         case 2:
             assignv2(keyBegin, keyEnd, std::forward<V_forward>(val));
             break;
+        case 3:
+            assignv3(keyBegin, keyEnd, std::forward<V_forward>(val));
+            break;
         
         default:
             if(Debugging) std::cout << "Nice try, the Assign doesnt exist" << std::endl;
@@ -424,7 +427,144 @@ public:
     template<typename V_forward>
     void assignv3 (K const &keyBegin, K const &keyEnd, V_forward &&val)
     {
+        auto itBegin = m_map.lower_bound(keyBegin);
+        
+        typename std::map<K,V>::iterator DeleteStart = m_map.begin();
 
+        //--------------------------------------------------------------Right Side Behaivior
+        if(itBegin == m_map.end())                                                                                  // Kein Key Kann in der Map liegen
+        {
+            auto itKeyBegin = m_map.emplace_hint(m_map.end(), keyBegin, std::forward<V_forward>(val));                                          // Insert start key at map end
+            auto itKeyEnd = m_map.emplace_hint(itKeyBegin, keyEnd, m_valBegin);                                                                 // Insert end key with default fallback value
+            return;
+        }
+        else
+        {
+            // Eine Überprüfung ob es eine Single Intervall insertion wird
+            const bool singleinterval = (keyEnd < itBegin->first);
+
+            // Tempbegin wird mit Val initilasiert, weil es der Beginn des Intervall ist
+            auto tempbegin = std::pair<K,V>(keyBegin, std::forward<V_forward>(val));
+            // Tempend wird mit Default erstmal mit Default belegt, weil in dem Aufbau unbekannt ist, welcher werd Richtig ist
+            auto tempend = std::pair<K,V>(keyEnd, m_valBegin);
+
+            //---------------------------------------------------------Behandlung der Linken Seite der Memory Sektion
+            // Wir sind bereits ganz Links
+            if(itBegin == m_map.begin())
+            {
+                // Wenn wir hier ein Single Intervall haben, befindet sich alles Neue Links vom Anfang und wir können keyend inserten und davor keybegin
+                if(singleinterval)
+                {
+                    auto keyendit = m_map.insert(m_map.begin(), tempend);
+                    m_map.insert(keyendit, tempbegin);
+
+                    return;
+                }
+                // Hier behandeln wir, das KeyBegin Links vom System liegt
+                if(keyBegin < itBegin->first)
+                {
+                    m_map.insert(m_map.begin(), tempbegin);
+                }
+                // Hier behandeln wir, das Keybegin der Erste Key ist
+                else
+                {
+                    itBegin->second = val;
+                    DeleteStart = std::next(itBegin);
+                }
+            }
+            // Wir haben Platz
+            else
+            {
+                auto leftofbegin = std::prev(itBegin);
+                // Hier behandeln wir die Situation "Es ist einschneident"
+                if(singleinterval)
+                {
+                    tempend.second = leftofbegin->second;
+
+                    if(!(leftofbegin->second == val))
+                    {
+                        auto keyendit = m_map.insert(m_map.begin(), tempend);
+                        m_map.insert(keyendit, tempbegin);
+                    }
+                    return;
+                }
+                // Wir Fangen Gedanklich an ab dem Segment zu löschen
+                DeleteStart = itBegin;
+                // Sollte allerdings der Vorgänger nicht Identisch sein 
+                if(!(leftofbegin->second == val))
+                {
+                    // Wir Befinden und Zwischen Vorgänger und dem nächsten Rechts
+                    if(keyBegin < itBegin->first)
+                    {
+                        m_map.insert(itBegin, tempbegin);
+                    }
+                    // Und wir befinden uns genau Drauf
+                    else
+                    {
+                        itBegin->second = val;
+                        DeleteStart = std::next(itBegin);
+
+                        if(DeleteStart != m_map.end())
+                        {
+                            if(keyEnd < DeleteStart->first)
+                            {
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        bool EndInserted = false;
+        //-------------------------------------------------------------Behandlung und Suche der Rechten Seite
+        while(DeleteStart != m_map.end())
+        {
+            // Wir Sichern uns die Information was kommt
+            auto next_key = std::next(DeleteStart);
+
+            if(next_key != m_map.end())
+            {
+                // Sollte Keyend nicht mehr Kleiner als der Nachfolger sein
+                if(keyEnd < next_key->first)
+                {
+                    EndInserted = true;
+                    if(!(DeleteStart->second == val))
+                    {
+                        m_map.insert(next_key, std::pair<K,V>(keyEnd, DeleteStart->second));
+                    }
+                    if(!(!(keyEnd < DeleteStart->first) && !(DeleteStart->first < keyEnd)) || ((!(keyEnd < DeleteStart->first) && !(DeleteStart->first < keyEnd)) && DeleteStart->second == val))
+                        m_map.erase(DeleteStart);                  
+                    break;
+                }
+            }
+
+            m_map.erase(DeleteStart);
+            // Wir springen egal was kommt auf den nächsten Kollegen
+            DeleteStart = next_key;
+        }
+
+        // Sollten wir Tatsächlich bis zum Letzten Aufräumen - die Map Muss mit m_valBegin Enden
+        if(!EndInserted && DeleteStart == m_map.end() && m_map.size() >= 1)
+        {
+            m_map.insert(m_map.end(), std::pair<K,V>(keyEnd, m_valBegin));
+        };
+        
+        // Finaler Besenstrich am Ende der Map 
+        if (m_map.size() >= 2)
+        {
+            auto lastIt = std::prev(m_map.end());
+            auto prevIt = std::prev(lastIt);
+
+            // Wenn das letzte Element exakt denselben Wert hat wie das davor,
+            // ist das letzte Element redundant (Kanonisierungs-Verletzung am Ende).
+            if (prevIt->second == lastIt->second)
+            {
+                m_map.erase(lastIt);
+            }
+        }
+
+        if(m_map.size() == 1) m_map.clear();
     };
 
     /*!
