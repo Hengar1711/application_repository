@@ -7,6 +7,9 @@
 
 #include "../../include/intervall_map.hpp"
 
+using namespace PC;
+
+
 enum class CrashPhase 
 {
     None = 0,
@@ -300,6 +303,24 @@ std::vector<Testinfo> Testcase1 =
 std::map<std::size_t, int64_t> Diagnostig_Time;
 int test_version = 0;
 
+/*!
+    @brief Validates the actual state of the interval map against expected test bindings.
+    
+    @param ref Reference to the underlying std::map of the interval_map.
+    @param input Vector of expected bindings (`Erwartungen_Binding`) representing the map state.
+    @param keybegin Start key of the tested interval.
+    @param keyend End key of the tested interval.
+    @param kontent Input content value assigned during the test step.
+
+    @details **Betrachtung:**
+                `InterpredSupport` fungiert als Assertions- und Validierungshelfer. Sie vergleicht 
+                die Anzahl der Segmente sowie deren Werte und Schlüssel exakt mit den Vorgaben des Testfalls.
+
+    @details **Regeln:**
+                - Wirft spezifische Integer-Fehlercodes (`2`, `3`, `4`), wenn Unstimmigkeiten bei der 
+                  Größe, den Werten oder den Schlüsseln auftreten[cite: 1], um den Fehler im Testlauf 
+                  klar zu lokalisieren.
+*/
 void InterpredSupport(std::map<KeySeperation, ValueSeperation>& ref, std::vector<Erwartungen_Binding> input, KeySeperation keybegin, KeySeperation keyend, ValueSeperation kontent)
 {
     if(ref.size() != input.size())
@@ -328,7 +349,7 @@ void InterpredSupport(std::map<KeySeperation, ValueSeperation>& ref, std::vector
     }
 };
 
-void IntervalMapTest()
+void PC::IntervalMapTest()
 {
     Testmap.assignselection = test_version;
     for(auto testinfo : Testcase1)
