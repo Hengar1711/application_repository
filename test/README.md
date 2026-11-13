@@ -1,7 +1,6 @@
 # Aufbau der Testumgebung
 
 Fakt 1 - Jede Berechnung wird gegen std::chrono::steady_clock gelegt
-Fakt 2 - Jede Berechnung wird gegen libcycle gelegt
 
 
 Cases
