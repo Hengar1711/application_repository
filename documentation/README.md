@@ -20,4 +20,4 @@
 
 10. Die Ironie des Prozesses: Ich war durchaus amüsiert darüber, dass ich eine sauber laufende Version 4 hatte und bei der Überleitung zur 5. Version trotzdem noch in einer eigentlich leichten Konvertierung gestolpert bin ^^.
     
-11. Dabei erinner ich mich auch noch, das ich länger gebraucht hatte die realtität von lower_bound richtig zu verstehen. Als ich dass mir dann visualisiert habe mithilfe des Memory Speicher, machte es dann Sinn. Lower Bound als Linker Rand in dem der Speicher sein kann gegen den Rechten Rand wo der Speicher garantiert nicht mehr ist.
+11. Dabei erinnere ich mich auch noch, dass ich länger gebraucht hatte, die Realität von lower_bound richtig zu verstehen. Als ich mir das dann mithilfe des Memory-Speichers visualisiert habe, machte es Sinn: Lower Bound als linker Rand, in dem der Speicher sein kann, gegenüber dem rechten Rand, wo der Speicher garantiert nicht mehr is
