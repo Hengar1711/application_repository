@@ -241,6 +241,16 @@ namespace SPS
             Searchsection = m_map.begin();
             Searchprev = m_map.begin();
 
+            if(Searchsection != m_map.end())
+            {
+                if(assignqueue.front().first.second < Searchsection->first)
+                {
+                    direkt_both = true;
+                    workingstate = 5;
+                    return;
+                }
+            }
+
             FokusKey = &assignqueue.front().first.first;
             val = &assignqueue.front().second;
             END = false;

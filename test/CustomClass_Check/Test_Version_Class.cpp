@@ -295,8 +295,10 @@ std::vector<Testinfo> Testcase1 =
     {KEY{-24}, KEY{  6}, VALUE{'a'}, {{VALUE{'a'}, KEY{-38}}, {VALUE{'m'}, KEY{-33}}, {VALUE{'b'}, KEY{-25}}, {VALUE{'a'}, KEY{-24}}, {VALUE{'c'}, KEY{ 27}}, {VALUE{'m'}, KEY{ 36}}, {VALUE{'h'}, KEY{39}}}},
     {KEY{-24}, KEY{  7}, VALUE{'a'}, {{VALUE{'a'}, KEY{-38}}, {VALUE{'m'}, KEY{-33}}, {VALUE{'b'}, KEY{-25}}, {VALUE{'a'}, KEY{-24}}, {VALUE{'c'}, KEY{ 27}}, {VALUE{'m'}, KEY{ 36}}, {VALUE{'h'}, KEY{39}}}},
     {KEY{-31}, KEY{-26}, VALUE{'a'}, {{VALUE{'a'}, KEY{-38}}, {VALUE{'m'}, KEY{-33}}, {VALUE{'a'}, KEY{-31}}, {VALUE{'m'}, KEY{-26}}, {VALUE{'b'}, KEY{-25}}, {VALUE{'a'}, KEY{-24}}, {VALUE{'c'}, KEY{27}}, {VALUE{'m'}, KEY{36}}, {VALUE{'h'}, KEY{39}}}},
-    {KEY{-35}, KEY{ 12}, VALUE{'b'}, {{VALUE{'a'}, KEY{-38}}, {VALUE{'b'}, KEY{-35}}, {VALUE{'a'}, KEY{ 12}}, {VALUE{'c'}, KEY{ 27}}, {VALUE{'m'}, KEY{ 36}}, {VALUE{'h'}, KEY{ 39}}}},
-            
+    {KEY{-35}, KEY{ 12}, VALUE{'b'}, {{VALUE{'a'}, KEY{-38}}, {VALUE{'b'}, KEY{-35}}, {VALUE{'a'}, KEY{ 12}}, {VALUE{'c'}, KEY{ 27}}, {VALUE{'m'}, KEY{ 36}}, {VALUE{'h'}, KEY{ 39}}}}, 
+
+    // Scaling up to 100 Intervalls
+    {KEY{-45}, KEY{ -40}, VALUE{'z'}, {{VALUE{'z'}, KEY{-45}}, {VALUE{'h'}, KEY{-40}}, {VALUE{'a'}, KEY{-38}}, {VALUE{'b'}, KEY{-35}}, {VALUE{'a'}, KEY{ 12}}, {VALUE{'c'}, KEY{ 27}}, {VALUE{'m'}, KEY{ 36}}, {VALUE{'h'}, KEY{ 39}}}}
 };
 
 
@@ -358,6 +360,11 @@ void PC::IntervalMapTest()
 
         counting = true;
         auto startcount = std::chrono::steady_clock::now();        
+
+        if(testinfo.keybegin.m_val == -45 && testinfo.keyend.m_val == -40 && testinfo.input.m_val == 'z')
+        {
+            bool test = false;
+        }
 
         Testmap.assign(testinfo.keybegin, testinfo.keyend, testinfo.input);
 

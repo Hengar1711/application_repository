@@ -184,7 +184,10 @@ namespace PC
                         {
                             return;                                                                                                     // Exit early since no change is needed
                         }
-                        tempend.second = std::prev(tempbeginIT)->second;                                                                // Use previous interval value for end key
+                        if(tempbeginIT != m_map.begin())
+                        {
+                            tempend.second = std::prev(tempbeginIT)->second;                                                                // Use previous interval value for end key
+                        }
                     }
                 }
 
@@ -731,6 +734,18 @@ namespace PC
                 auto Searchsection = m_map.begin();
                 auto Searchprev = m_map.begin();
 
+                {   // Pre-check and handling for left boundary (beyond last element)
+                    if(keyEnd < Searchsection->first)
+                    {
+                        if(keyBegin < Searchsection->first)
+                        {
+                            m_map.emplace_hint(m_map.end(), keyBegin, std::forward<V_forward>(val));
+                            m_map.emplace_hint(m_map.end(), keyEnd, m_valBegin);
+                            return;
+                        }
+                    }
+                }
+
                 auto FokusKey = keyBegin;
                 bool END = false;
                 bool EndHandled = false;            
@@ -787,7 +802,7 @@ namespace PC
                                 {
                                     if(Search_Smaller_Ley && !(Searchprev->second == val))
                                     {
-                                        m_map.emplace_hint(Searchsection, FokusKey, Searchprev->second);
+                                        Searchprev = m_map.emplace_hint(Searchsection, FokusKey, Searchprev->second);
                                         if(Searchprev->second == Searchsection->second)
                                         {
                                             m_map.erase(Searchprev);
